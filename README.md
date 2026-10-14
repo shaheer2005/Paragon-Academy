@@ -45,19 +45,19 @@ The development-only test purchase does not charge money. Manual payment verific
 
 ## API and deployment
 
-SQLite data and private media use `API_DATA_DIR` and `MEDIA_STORAGE_DIR` (defaults are under `server/`). `GET /api/health` reports API and storage health. The authenticated media endpoint is `GET /api/content/:id/stream`.
+The API uses PostgreSQL when `DATABASE_URL` is configured and uses local SQLite for development/tests when it is not. The production API requires `DATABASE_URL`; it will fail at startup rather than silently use a temporary SQLite database. The API initializes/updates its PostgreSQL schema on startup. `GET /api/health` reports database and media-storage health. The authenticated media endpoint is `GET /api/content/:id/stream`.
 
-### Deploy frontend to Vercel and API to Railway
+### Deploy frontend to Vercel and API to Render
 
-The included `vercel.json` builds the Vite frontend, routes `/api/*` to Railway, and preserves client-side routes. Configure the Railway API service in its dashboard; attach a persistent volume for both SQLite and private course uploads. SQLite requires one API replica.
+The included `vercel.json` builds the Vite frontend, routes `/api/*` to the Render API, and preserves client-side routes.
 
-1. Push the repository to GitHub. In Railway, create a project and deploy a service from the GitHub repository. Set the service root directory to the repository root and the start command to `npm run api`.
-2. Add a persistent volume to the API service and mount it at `/data`. In the service's Variables settings, set `NODE_ENV=production`, `ALLOW_DEV_SESSIONS=false`, `API_DATA_DIR=/data/data`, `MEDIA_STORAGE_DIR=/data/storage`, `MAX_STORAGE_BYTES=9663676416`, `ADMIN_EMAIL`, and a strong unique `ADMIN_PASSWORD`; optionally set `ADMIN_NAME`. Keep production secrets out of GitHub. The Owner account is created on first startup when its variables are present.
-3. In Railway service Settings > Networking, generate a public domain. Wait for the API to become healthy by opening `https://YOUR-RAILWAY-DOMAIN.up.railway.app/api/health`.
-4. Replace the placeholder host in the API rewrite destination in `vercel.json` with the exact Railway domain, then commit and push that change. For example, if Railway shows `paragon-api-production-1234.up.railway.app`, the destination should be `https://paragon-api-production-1234.up.railway.app/api/$1`.
-5. Import the same GitHub repository in Vercel using the repository root. Use `npm run build` and `dist` as the output directory. Deploy after the Railway URL has been added to `vercel.json`.
-6. Open the Vercel deployment and verify `/`, `/signin`, `/signup`, and `/admin`. Sign in as Owner using the Railway `ADMIN_EMAIL` and `ADMIN_PASSWORD`.
+1. Create a free PostgreSQL database with a provider such as Neon, and copy its connection string. Keep it private; never put it in Vercel's frontend variables or commit it to Git.
+2. In Render, create a Web Service from this GitHub repository with the repository root as the root directory, `npm ci` as the build command, and `npm run api` as the start command. Render sets `PORT` automatically.
+3. In Render's Environment settings, add `DATABASE_URL` with the PostgreSQL connection string; set `NODE_ENV=production`, `ALLOW_DEV_SESSIONS=false`, `ADMIN_EMAIL`, and a strong unique `ADMIN_PASSWORD`; optionally set `ADMIN_NAME`, `RESEND_API_KEY`, and `RESEND_FROM_EMAIL`. The Owner account is created the first time the API starts against the new database.
+4. Deploy the Render service and wait until `https://YOUR-RENDER-SERVICE.onrender.com/api/health` returns JSON with `"status":"ok"`.
+5. Confirm `vercel.json` points at that exact Render service URL in its `/api/(.*)` rewrite. Import the same repository into Vercel using the repository root, with `npm run build` and `dist` as the output directory; deploy from `main`.
+6. Verify `https://YOUR-VERCEL-SITE.vercel.app/api/health` also returns `"status":"ok"`, then test student signup and Owner sign-in.
 
-The Vercel rewrite keeps browser API requests same-origin, allowing the production session cookie to work without exposing credentials to frontend code. Do not remove the `/api/(.*)` rewrite. Do not scale the Railway API to multiple replicas when using SQLite. Back up the SQLite database and private uploads independently. Increase Railway volume capacity and `MAX_STORAGE_BYTES` together if you need more than the configured 9 GiB media quota. Configure `RESEND_API_KEY` and `RESEND_FROM_EMAIL` in Railway only if password-reset email is required.
+The Vercel rewrite keeps browser API requests same-origin, allowing the production session cookie to work without exposing credentials to frontend code. PostgreSQL stores accounts, courses, progress, and other application records; it does not store uploaded videos, PDFs, or payment receipts. Render's free service filesystem is ephemeral, so uploaded files are not durable there. Use a persistent disk where available or add private object storage before relying on course uploads/receipts. Configure `RESEND_API_KEY` and `RESEND_FROM_EMAIL` in Render only if password-reset email is required. Existing SQLite accounts, courses, and payment records are not automatically copied into PostgreSQL; the first PostgreSQL deployment starts with a new database.
 
 Configure a real payment provider and external notification/conferencing services before relying on those integrations. Attendance is staff-marked and is not verified by the meeting provider. Assignment responses are text-only. The configured `MAX_STORAGE_BYTES` is an application quota, not a cloud storage contract.

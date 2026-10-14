@@ -69,6 +69,8 @@ test('API authentication, role access, and course workflows', async (t) => {
     env: {
       ...process.env,
       NODE_ENV: 'test',
+      DB_DRIVER: 'test-sqlite',
+      DATABASE_URL: '',
       API_PORT: String(port),
       API_DATA_DIR: dataDir,
       MEDIA_STORAGE_DIR: mediaDir,
@@ -665,6 +667,8 @@ test('signup works without email delivery in development and production', async 
       env: {
         ...process.env,
         NODE_ENV: mode,
+        DB_DRIVER: 'test-sqlite',
+        DATABASE_URL: '',
         API_PORT: String(port),
         API_DATA_DIR: dataDir,
         MEDIA_STORAGE_DIR: mediaDir,
