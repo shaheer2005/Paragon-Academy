@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: paragon-academy-api
+    runtime: node
+    plan: starter
+    buildCommand: npm ci
+    startCommand: npm run api
+    healthCheckPath: /api/health
+    disk:
+      name: paragon-academy-data
+      mountPath: /var/data
+      sizeGB: 10
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: ALLOW_DEV_SESSIONS
+        value: "false"
+      - key: API_DATA_DIR
+        value: /var/data/data
+      - key: MEDIA_STORAGE_DIR
+        value: /var/data/storage
+      - key: MAX_STORAGE_BYTES
+        value: "9663676416"

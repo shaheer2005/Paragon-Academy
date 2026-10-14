@@ -47,4 +47,16 @@ The development-only test purchase does not charge money. Manual payment verific
 
 SQLite data and private media use `API_DATA_DIR` and `MEDIA_STORAGE_DIR` (defaults are under `server/`). `GET /api/health` reports API and storage health. The authenticated media endpoint is `GET /api/content/:id/stream`.
 
-For production, use strong secrets, disable development sessions, serve over HTTPS, back up SQLite and private media, and configure private object storage for hosted deployments. Configure a real payment provider and external notification/conferencing services before relying on those integrations. Attendance is staff-marked and is not verified by the meeting provider. Assignment responses are text-only. The configured `MAX_STORAGE_BYTES` is an application quota, not a cloud storage contract.
+### Deploy frontend to Vercel and API to Render
+
+The repository includes a Render Blueprint (`render.yaml`) for the API and its persistent disk, plus `vercel.json` to build the Vite frontend, route `/api/*` to Render, and preserve client-side routes. The Render disk stores both SQLite and private course uploads. SQLite requires one API instance; do not enable multiple instances or autoscaling for this setup.
+
+1. Push the repository to GitHub and create a Render Blueprint from it. Confirm the paid **Starter** web service and 10 GB persistent disk in Render before applying the Blueprint; the disk is required so database and uploaded files survive deploys and restarts.
+2. In the Render service's Environment settings, set `ADMIN_EMAIL` and `ADMIN_PASSWORD` (use a strong unique password) and optionally `ADMIN_NAME`. The Owner account is created on first startup when those values are present. Do not put production secrets in the repository.
+3. Wait for the Render service to become healthy at `/api/health`. Its default service URL is `https://paragon-academy-api.onrender.com`, matching the Vercel rewrite in `vercel.json`. If Render assigns another URL, update the rewrite destination to that exact HTTPS URL and push the change.
+4. Import the same GitHub repository as a Vercel project. Use the repository root as the project root and the included build settings (`npm run build`, output directory `dist`). Deploy after the Render API is healthy.
+5. Open the Vercel deployment and verify the public homepage, `/signin`, `/signup`, and `/admin`. Sign in as Owner using the Render `ADMIN_EMAIL` and `ADMIN_PASSWORD`.
+
+The Vercel rewrite keeps browser API requests same-origin, which allows the production session cookie to work without exposing credentials to frontend code. Do not remove the `/api/(.*)` rewrite. The included Render setup uses SQLite on a persistent disk rather than managed PostgreSQL; migrating to PostgreSQL would require a separate database/API migration. Increase both the Render disk size and `MAX_STORAGE_BYTES` if you need more than the configured 9 GiB media quota. Back up the SQLite database and private uploads independently. Configure `RESEND_API_KEY` and `RESEND_FROM_EMAIL` in Render only if password-reset email is required.
+
+Configure a real payment provider and external notification/conferencing services before relying on those integrations. Attendance is staff-marked and is not verified by the meeting provider. Assignment responses are text-only. The configured `MAX_STORAGE_BYTES` is an application quota, not a cloud storage contract.
